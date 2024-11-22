@@ -12,14 +12,19 @@ public class Player
     public int Level { get; set; }
     public int Gold { get; set; }
     public List<string> Buffs { get; set; }
+    public List<string> Debuffs { get; set; }
 
     private Player()
     {
-        HP = 100;
-        MP = 50;
+        // Increased Player Stats
+        HP = 200; // Starting HP increased
+        MP = 100; // Starting MP increased
         Level = 1;
         Gold = 0;
         Buffs = new List<string>();
+        Debuffs = new List<string>();  // List to track debuffs
+        // Give the player a health potion at the start of the game
+        Buffs.Add("Health Potion");
     }
 
     public static Player Instance
@@ -49,6 +54,41 @@ public class Player
         {
             Console.WriteLine($"- {buff}");
         }
+        Console.WriteLine("Active Debuffs:");
+        foreach (var debuff in Debuffs)
+        {
+            Console.WriteLine($"- {debuff}");
+        }
+    }
+
+    // Apply the debuff effects
+    public void ApplyDebuffEffects()
+    {
+        if (Debuffs.Contains("Poisoned"))
+        {
+            // Poison deals 5 damage each turn
+            HP -= 5;
+            Console.WriteLine("You are poisoned! You lose 5 HP due to poison.");
+        }
+
+        if (Debuffs.Contains("Weakened"))
+        {
+            // Weakened reduces the player's damage output by half
+            Console.WriteLine("You are weakened! Your attacks deal half the damage.");
+        }
+    }
+
+    public void RemoveDebuff(string debuff)
+    {
+        Debuffs.Remove(debuff);
+        Console.WriteLine($"{debuff} has worn off.");
+    }
+
+    // Clear all debuffs after combat
+    public void ClearDebuffs()
+    {
+        Debuffs.Clear();
+        Console.WriteLine("All debuffs have been cleared after the battle.");
     }
 }
 
@@ -58,40 +98,23 @@ public abstract class Region
     public abstract void Enter(Player player);
 }
 
-// CombatRegion with Separated Normal and Elemental Attacks
+// Combat Region
 public class CombatRegion : Region
 {
-    private readonly string[] enemyTypes = { "Goblin", "Orc", "Skeleton", "Bandit" };
-    private readonly Random random = new Random();
-    private string enemyType;
-    private int enemyHP;
-    private int enemyAttack;
-
     public override void Enter(Player player)
     {
-        if (player.Level == 5)
-        {
-            // Boss Encounter on 5th Level
-            enemyType = "Boss";
-            enemyHP = 150;
-            enemyAttack = 30;
-        }
-        else
-        {
-            // Regular Enemy Encounter
-            enemyType = enemyTypes[random.Next(enemyTypes.Length)];
-            enemyHP = random.Next(30, 60);
-            enemyAttack = random.Next(10, 20);
-        }
+        Random rand = new Random();
+        int enemyHP = rand.Next(50, 100);
+        int enemyAttack = rand.Next(10, 30);
 
-        string enemyNextAction = DetermineEnemyAction();
-
-        Console.WriteLine($"\nYou've encountered a {enemyType}!");
-        Console.WriteLine($"Enemy HP: {enemyHP}");
+        Console.WriteLine("\nA wild enemy appears!");
 
         while (enemyHP > 0 && player.HP > 0)
         {
-            Console.WriteLine($"\nEnemy's Next Action: {enemyNextAction}");
+            player.ApplyDebuffEffects();  // Apply debuff effects at the start of each turn
+
+            Console.WriteLine($"\nEnemy HP: {enemyHP}");
+            player.DisplayStats();
             Console.WriteLine("\nYour Move:");
             Console.WriteLine("1. Normal Attack");
             Console.WriteLine("2. Elemental Attack (Cost: 10 MP)");
@@ -108,7 +131,7 @@ public class CombatRegion : Region
             switch (choice)
             {
                 case "1": // Normal Attack
-                    damage = NormalAttack();
+                    damage = NormalAttack(player);
                     enemyHP -= damage;
                     Console.WriteLine($"You performed a Normal Attack and dealt {damage} damage!");
                     break;
@@ -116,7 +139,7 @@ public class CombatRegion : Region
                 case "2": // Elemental Attack
                     if (player.MP >= 10)
                     {
-                        damage = ElementalAttack();
+                        damage = ElementalAttack(player);
                         player.MP -= 10;  // Deduct MP for Elemental Attack
                         enemyHP -= damage;
                         Console.WriteLine($"You performed an Elemental Attack and dealt {damage} damage!");
@@ -137,7 +160,7 @@ public class CombatRegion : Region
                     break;
 
                 case "5": // Flee
-                    if (random.Next(0, 2) == 0) // 50% chance to flee
+                    if (rand.Next(0, 2) == 0) // 50% chance to flee
                     {
                         Console.WriteLine("You successfully fled!");
                         return;
@@ -154,10 +177,7 @@ public class CombatRegion : Region
             }
 
             // Enemy performs action
-            ExecuteEnemyAction(enemyNextAction, player, ref enemyAttack);
-
-            // Determine the enemy's next action
-            enemyNextAction = DetermineEnemyAction();
+            ExecuteEnemyAction(player);
 
             // Clear the console after enemy action
             Console.Clear();
@@ -165,10 +185,13 @@ public class CombatRegion : Region
 
         if (player.HP > 0)
         {
-            Console.WriteLine($"\nYou defeated the {enemyType}!");
-            int goldReward = random.Next(10, 30);
+            Console.WriteLine("\nYou defeated the enemy!");
+            int goldReward = rand.Next(10, 30);
             player.Gold += goldReward;
             Console.WriteLine($"You received {goldReward} gold!");
+
+            // Remove all debuffs after defeating the enemy
+            player.ClearDebuffs();
         }
         else
         {
@@ -176,19 +199,15 @@ public class CombatRegion : Region
         }
     }
 
-    private string DetermineEnemyAction()
+    private void ExecuteEnemyAction(Player player)
     {
-        string[] actions = { "Attack", "Defend", "Special Attack" };
-        return actions[random.Next(actions.Length)];
-    }
+        Random rand = new Random();
+        int action = rand.Next(1, 4); // Random action: 1 = Attack, 2 = Defend, 3 = Special Attack
 
-    private void ExecuteEnemyAction(string action, Player player, ref int enemyAttack)
-    {
-        Random rnd = new Random();
         switch (action)
         {
-            case "Attack":
-                int damage = rnd.Next(enemyAttack / 2, enemyAttack);
+            case 1: // Attack
+                int damage = rand.Next(10, 20);
                 if (player.Buffs.Contains("Defend"))
                 {
                     damage /= 2;
@@ -196,43 +215,84 @@ public class CombatRegion : Region
                     player.Buffs.Remove("Defend");
                 }
                 player.HP -= damage;
-                Console.WriteLine($"The enemy attacked you for {damage} damage!");
+                Console.WriteLine($"Enemy attacked you for {damage} damage!");
                 break;
 
-            case "Defend":
+            case 2: // Defend
                 Console.WriteLine("The enemy defends, reducing your next attack's damage!");
-                enemyAttack += 5; // Temporary increase in defense
                 break;
 
-            case "Special Attack":
-                int specialDamage = rnd.Next(enemyAttack + 5, enemyAttack + 15);
+            case 3: // Special Attack
+                int specialDamage = rand.Next(20, 40);
                 player.HP -= specialDamage;
                 Console.WriteLine($"The enemy used a special attack and dealt {specialDamage} damage!");
+
+                // Apply debuff to the player after special attack
+                ApplyDebuffToPlayer(player);
                 break;
         }
     }
 
-    private int NormalAttack()
+    private void ApplyDebuffToPlayer(Player player)
     {
-        // Normal attack does fixed damage (e.g., 15)
-        return 15;
+        Random rand = new Random();
+        int debuffChoice = rand.Next(1, 3); // Randomly apply a debuff: 1 = Poisoned, 2 = Weakened
+
+        if (debuffChoice == 1)
+        {
+            player.Debuffs.Add("Poisoned");
+            Console.WriteLine("You have been poisoned! You will lose 5 HP each turn.");
+        }
+        else if (debuffChoice == 2)
+        {
+            player.Debuffs.Add("Weakened");
+            Console.WriteLine("You have been weakened! Your attacks will deal half damage.");
+        }
     }
 
-    private int ElementalAttack()
+    private int NormalAttack(Player player)
+    {
+        // Normal attack does fixed damage (e.g., 20), modified by debuff if weakened
+        int damage = 20;
+        if (player.Debuffs.Contains("Weakened"))
+        {
+            damage /= 2;
+            Console.WriteLine("Your weakened state reduced the damage.");
+        }
+        return damage;
+    }
+
+    private int ElementalAttack(Player player)
     {
         Console.WriteLine("Choose your Elemental Attack:");
-        Console.WriteLine("1. Fire");
-        Console.WriteLine("2. Ice");
-        Console.WriteLine("3. Lightning");
-        string elementalChoice = Console.ReadLine();
+        Console.WriteLine("1. Fire Attack");
+        Console.WriteLine("2. Ice Attack");
+        Console.WriteLine("3. Lightning Attack");
 
-        int damage = elementalChoice switch
+        string attackChoice = Console.ReadLine();
+        int damage = 0;
+
+        switch (attackChoice)
         {
-            "1" => random.Next(20, 30), // Fire
-            "2" => random.Next(15, 25), // Ice
-            "3" => random.Next(25, 35), // Lightning
-            _ => random.Next(15, 20), // Default (fallback)
-        };
+            case "1": // Fire
+                damage = 25;
+                Console.WriteLine("You cast a Fire Attack! The enemy is scorched by flames.");
+                break;
+
+            case "2": // Ice
+                damage = 20;
+                Console.WriteLine("You cast an Ice Attack! The enemy is frozen momentarily.");
+                break;
+
+            case "3": // Lightning
+                damage = 30;
+                Console.WriteLine("You cast a Lightning Attack! The enemy is struck by a bolt of lightning.");
+                break;
+
+            default:
+                Console.WriteLine("Invalid choice.");
+                break;
+        }
         return damage;
     }
 
@@ -240,177 +300,193 @@ public class CombatRegion : Region
     {
         if (player.Buffs.Contains("Health Potion"))
         {
-            player.HP += 30;
+            player.HP += 50; // Larger healing potion for increased difficulty
             player.Buffs.Remove("Health Potion");
-            Console.WriteLine("You used a Health Potion and restored 30 HP!");
-        }
-        else if (player.Buffs.Contains("Mana Potion"))
-        {
-            player.MP += 20;
-            player.Buffs.Remove("Mana Potion");
-            Console.WriteLine("You used a Mana Potion and restored 20 MP!");
+            Console.WriteLine("You used a Health Potion and regained 50 HP!");
         }
         else
         {
-            Console.WriteLine("You don't have any potions!");
+            Console.WriteLine("You don't have a Health Potion.");
         }
     }
 }
 
-// Shop for Healing and Buffs
-public class Shop
+// Boss Character
+public class Boss : Region
 {
-    public void OpenShop(Player player)
+    private int bossHP;
+    private int bossAttack;
+    private string bossName;
+
+    public Boss(string name, int hp, int attack)
     {
-        string choice = string.Empty;
+        bossName = name;
+        bossHP = hp;
+        bossAttack = attack;
+    }
 
-        while (choice != "4") // Keep shopping until player chooses to exit
+    public override void Enter(Player player)
+    {
+        Console.WriteLine($"You've reached the final level! {bossName} awaits!");
+
+        while (bossHP > 0 && player.HP > 0)
         {
-            Console.WriteLine("\nWelcome to the Shop!");
-            Console.WriteLine("1. Buy Health Potion (Cost: 10 Gold)");
-            Console.WriteLine("2. Buy Mana Potion (Cost: 10 Gold)");
-            Console.WriteLine("3. Buy Buff (Cost: 20 Gold)");
-            Console.WriteLine("4. Exit Shop");
+            Console.WriteLine($"\nBoss HP: {bossHP}");
+            player.DisplayStats();
 
-            choice = Console.ReadLine();
+            // Player turn
+            Console.WriteLine("\nYour Move:");
+            Console.WriteLine("1. Normal Attack");
+            Console.WriteLine("2. Elemental Attack (Cost: 10 MP)");
+            Console.WriteLine("3. Use Potion");
+
+            string choice = Console.ReadLine();
+            int damage;
+
             switch (choice)
             {
                 case "1":
-                    BuyHealthPotion(player);
+                    damage = NormalAttack(player);
+                    bossHP -= damage;
+                    Console.WriteLine($"You dealt {damage} damage to {bossName}!");
                     break;
 
                 case "2":
-                    BuyManaPotion(player);
+                    if (player.MP >= 10)
+                    {
+                        damage = ElementalAttack(player);
+                        player.MP -= 10;
+                        bossHP -= damage;
+                        Console.WriteLine($"You dealt {damage} damage to {bossName} with an Elemental Attack!");
+                    }
+                    else
+                    {
+                        Console.WriteLine("Not enough MP.");
+                    }
                     break;
 
                 case "3":
-                    BuyBuff(player);
-                    break;
-
-                case "4":
-                    Console.WriteLine("You exit the shop.");
+                    UsePotion(player);
                     break;
 
                 default:
                     Console.WriteLine("Invalid choice.");
-                    break;
+                    continue;
+            }
+
+            // Boss action
+            if (bossHP > 0)
+            {
+                ExecuteEnemyAction(player);
             }
         }
-    }
 
-    private void BuyHealthPotion(Player player)
-    {
-        if (player.Gold >= 10)
+        if (player.HP > 0)
         {
-            player.Gold -= 10;
-            player.Buffs.Add("Health Potion");
-            Console.WriteLine("You bought a Health Potion!");
+            Console.WriteLine($"\nYou defeated {bossName}!");
         }
         else
         {
-            Console.WriteLine("You don't have enough gold.");
+            Console.WriteLine("\nYou were defeated by the boss!");
         }
     }
 
-    private void BuyManaPotion(Player player)
+    private void ExecuteEnemyAction(Player player)
     {
-        if (player.Gold >= 10)
-        {
-            player.Gold -= 10;
-            player.Buffs.Add("Mana Potion");
-            Console.WriteLine("You bought a Mana Potion!");
-        }
-        else
-        {
-            Console.WriteLine("You don't have enough gold.");
-        }
+        Random rand = new Random();
+        int damage = rand.Next(30, 50);
+        player.HP -= damage;
+        Console.WriteLine($"{bossName} attacks you for {damage} damage!");
     }
 
-    private void BuyBuff(Player player)
+    private int NormalAttack(Player player)
     {
-        if (player.Gold >= 20)
+        int damage = 20;
+        if (player.Debuffs.Contains("Weakened"))
         {
-            player.Gold -= 20;
-            player.Buffs.Add("Buff");
-            Console.WriteLine("You bought a Buff!");
+            damage /= 2;
+            Console.WriteLine("Your weakened state reduced the damage.");
+        }
+        return damage;
+    }
+
+    private int ElementalAttack(Player player)
+    {
+        int damage = 0;
+        Random rand = new Random();
+        int attackChoice = rand.Next(1, 4); // Random elemental attack
+
+        switch (attackChoice)
+        {
+            case 1:
+                damage = 25;
+                Console.WriteLine("The Boss casts Fire!");
+                break;
+            case 2:
+                damage = 20;
+                Console.WriteLine("The Boss casts Ice!");
+                break;
+            case 3:
+                damage = 30;
+                Console.WriteLine("The Boss casts Lightning!");
+                break;
+        }
+        return damage;
+    }
+
+    // Add the UsePotion method here
+    private void UsePotion(Player player)
+    {
+        if (player.Buffs.Contains("Health Potion"))
+        {
+            player.HP += 50; // Larger healing potion for increased difficulty
+            player.Buffs.Remove("Health Potion");
+            Console.WriteLine("You used a Health Potion and regained 50 HP!");
         }
         else
         {
-            Console.WriteLine("You don't have enough gold.");
+            Console.WriteLine("You don't have a Health Potion.");
         }
     }
 }
 
-// Main Game Class
+
+// Main Game Logic
 public class Game
 {
-    private readonly Player player;
-    private readonly Random random;
-    private int currentLevel;
-    private const int MaxLevel = 5;
-
-    public Game()
+    private static void Main(string[] args)
     {
-        player = Player.Instance;
-        random = new Random();
-        currentLevel = 1;
-    }
+        Player player = Player.Instance;
 
-    public void Start()
-    {
-        Console.WriteLine("Welcome to the Roguelike Dungeon!");
+        Console.WriteLine("Welcome to the Dungeon!");
+        player.DisplayStats();
 
-        while (currentLevel <= MaxLevel && player.HP > 0)
+        // Progress through levels
+        for (int level = 1; level <= 5; level++)
         {
-            Console.WriteLine($"\n=== Level {currentLevel} ===");
-            player.DisplayStats();
+            Console.WriteLine($"\n=== Level {level} ===");
 
-            // Choose between fight or shop
-            Console.WriteLine("\nWhat would you like to do?");
-            Console.WriteLine("1. Fight");
-            Console.WriteLine("2. Shop/Buff");
-
-            string choice = Console.ReadLine();
-
-            if (choice == "1")
+            // If it's level 5, the player encounters the boss
+            if (level == 5)
             {
-                // Simulate a combat encounter
-                var combatRegion = new CombatRegion();
-                combatRegion.Enter(player);
-            }
-            else if (choice == "2")
-            {
-                // Open the shop
-                var shop = new Shop();
-                shop.OpenShop(player);
-            }
-            else
-            {
-                Console.WriteLine("Invalid choice.");
-                continue;
+                Boss finalBoss = new Boss("Final Boss", 300, 30);
+                finalBoss.Enter(player);
+                break;
             }
 
-            Console.WriteLine("\nPress any key to continue to the next level...");
-            Console.ReadKey();
-            currentLevel++;
+            CombatRegion combatRegion = new CombatRegion();
+            combatRegion.Enter(player);
 
-            // Clear the console before continuing to the next level
-            Console.Clear();
+            // Remove all debuffs after each level's encounter
+            player.ClearDebuffs();
+
+            // If player is dead, end the game
+            if (player.HP <= 0)
+            {
+                break;
+            }
         }
 
-        if (player.HP <= 0)
-        {
-            Console.WriteLine("\nGame Over! You have been defeated!");
-        }
-    }
-}
-
-// Program Entry Point
-class Program
-{
-    static void Main(string[] args)
-    {
-        Game game = new Game();
-        game.Start();
+        Console.WriteLine("Game Over!");
     }
 }
