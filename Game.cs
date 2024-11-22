@@ -20,6 +20,14 @@ public class Game
         {
             Console.WriteLine($"\n=== Level {level} ===");
 
+            // If it's level 4, the player encounters a shop
+            if (level == 4)
+            {
+                Shop shop = new Shop();
+                shop.OpenShop(player);
+                continue;
+            }
+
             // If it's level 5, the player encounters the boss
             if (level == 5)
             {
